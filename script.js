@@ -1,151 +1,130 @@
-// 1. إعدادات الأصوات والإشعارات
+// --- 1. التنبيهات والأصوات ---
 const workEndSound = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
 const breakEndSound = new Audio('https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg');
 
-if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+if (Notification.permission !== "granted") {
     Notification.requestPermission();
 }
 
-function sendAlert(title, message, type) {
-    if (type === 'work') { workEndSound.play().catch(() => {}); } 
-    else { breakEndSound.play().catch(() => {}); }
+function notify(title, msg, type) {
+    if (type === 'work') workEndSound.play().catch(()=>{});
+    else breakEndSound.play().catch(()=>{});
 
     if (Notification.permission === "granted") {
-        new Notification(title, { body: message, icon: 'logo.png' });
+        new Notification(title, { body: msg, icon: 'logo.png' });
     }
-    alert(message);
+    alert(msg);
 }
 
-// 2. المتغيرات العامة (البيانات)
+// --- 2. البيانات والترحيب ---
 let userName = localStorage.getItem('userName') || "";
 let focusPoints = parseInt(localStorage.getItem('focusPoints')) || 0;
 let tasks = JSON.parse(localStorage.getItem('weeklyTasks')) || {};
 let monthTasks = JSON.parse(localStorage.getItem('monthTasks')) || {};
 
-// 3. نظام التايمر (Pomodoro)
-let timerId = null;
-let isWorkMode = true;
-let workTime = 25;
-let breakTime = 5;
-let timeLeft = workTime * 60;
-
-const timerDisplay = document.getElementById('timer-display');
-const pomoLabel = document.getElementById('pomo-label');
-
-function updateDisplay() {
-    let mins = Math.floor(timeLeft / 60);
-    let secs = timeLeft % 60;
-    if(timerDisplay) timerDisplay.innerText = `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
-}
-
-function startTimer() {
-    if (timerId !== null) return;
-    timerId = setInterval(() => {
-        if (timeLeft > 0) {
-            timeLeft--;
-            updateDisplay();
-        } else {
-            clearInterval(timerId);
-            timerId = null;
-            if (isWorkMode) {
-                sendAlert("انتهى وقت العمل! 🎯", "خذ استراحة قصيرة.", 'work');
-                isWorkMode = false;
-                timeLeft = breakTime * 60;
-                pomoLabel.innerText = "☕ وقت الراحة";
-                addFocusPoints(10);
-            } else {
-                sendAlert("انتهت الراحة! 💪", "عد للعمل بنشاط.", 'break');
-                isWorkMode = true;
-                timeLeft = workTime * 60;
-                pomoLabel.innerText = "🎯 وقت التركيز";
-            }
-            updateDisplay();
-        }
-    }, 1000);
-}
-
-function pauseTimer() { clearInterval(timerId); timerId = null; }
-
-function resetTimer() {
-    pauseTimer();
-    workTime = parseInt(document.getElementById('work-input').value) || 25;
-    breakTime = parseInt(document.getElementById('break-input').value) || 5;
-    isWorkMode = true;
-    timeLeft = workTime * 60;
-    if(pomoLabel) pomoLabel.innerText = "🎯 وقت التركيز";
-    updateDisplay();
-}
-
-// 4. نظام النقاط والترحيب
-function addFocusPoints(pts) {
-    focusPoints += pts;
-    localStorage.setItem('focusPoints', focusPoints);
-    updateHeader();
-}
-
-function updateHeader() {
-    if(!userName) {
-        userName = prompt("ما هو اسمك يا بطل؟") || "مستخدم متألق";
+function initApp() {
+    if (!userName) {
+        userName = prompt("مرحباً بك في منظمك الجديد! ما اسمك؟") || "مستخدم متألق";
         localStorage.setItem('userName', userName);
     }
     document.getElementById('user-greeting').innerText = `أهلاً بك، ${userName} ✨`;
-    document.getElementById('f-points').innerText = `✨ نقاط التركيز: ${focusPoints}`;
-    
-    let badge = "🏅 مبتدئ";
-    if(focusPoints > 100) badge = "🔥 مثابر";
-    if(focusPoints > 500) badge = "👑 أسطورة التركيز";
-    document.getElementById('user-badge').innerText = badge;
+    updateStats();
+    renderWeekly();
+    renderCalendar();
 }
 
-// 5. المنظم الأسبوعي (الأيام)
-const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+// --- 3. المنظم الأسبوعي والتواريخ ---
+function getWeekDates() {
+    let now = new Date();
+    let dayOfWeek = now.getDay(); // 0 (الأحد) إلى 6 (السبت)
+    let startOfWeek = new Date(now);
+    startOfWeek.setDate(now.getDate() - dayOfWeek); // العودة ليوم الأحد
+
+    let dates = [];
+    for (let i = 0; i < 7; i++) {
+        let tempDate = new Date(startOfWeek);
+        tempDate.setDate(startOfWeek.getDate() + i);
+        dates.push(`${tempDate.getDate()}/${tempDate.getMonth() + 1}`);
+    }
+    return dates;
+}
+
+const dayNames = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
 function renderWeekly() {
     const grid = document.getElementById('daysGrid');
-    if(!grid) return;
+    const weekDates = getWeekDates();
     grid.innerHTML = '';
-    days.forEach(day => {
+
+    dayNames.forEach((day, index) => {
         let dayTasks = tasks[day] || [];
-        let html = `
+        grid.innerHTML += `
             <div class="day-card">
-                <h3>${day}</h3>
+                <h3>${day} <span class="date-label">${weekDates[index]}</span></h3>
                 <div class="input-group">
-                    <input type="text" id="input-${day}" placeholder="إضافة مهمة...">
+                    <input type="text" id="input-${day}" placeholder="مهمة جديدة...">
                     <button onclick="addTask('${day}')">+</button>
                 </div>
                 <ul class="task-list">
                     ${dayTasks.map((t, i) => `
                         <li class="${t.done ? 'done' : ''}">
                             <span onclick="toggleTask('${day}', ${i})">${t.text}</span>
-                            <button class="del-btn" onclick="deleteTask('${day}', ${i})">×</button>
+                            <button onclick="deleteTask('${day}', ${i})">×</button>
                         </li>
                     `).join('')}
                 </ul>
             </div>`;
-        grid.innerHTML += html;
     });
-    updateStats();
 }
 
 function addTask(day) {
     let input = document.getElementById(`input-${day}`);
-    if(!input.value) return;
-    if(!tasks[day]) tasks[day] = [];
-    tasks[day].push({text: input.value, done: false});
-    localStorage.setItem('weeklyTasks', JSON.stringify(tasks));
+    if (!input.value) return;
+    if (!tasks[day]) tasks[day] = [];
+    tasks[day].push({ text: input.value, done: false });
+    saveAndRender();
     input.value = '';
-    renderWeekly();
 }
 
-function toggleTask(day, i) {
-    tasks[day][i].done = !tasks[day][i].done;
+function toggleTask(day, i) { tasks[day][i].done = !tasks[day][i].done; saveAndRender(); }
+function deleteTask(day, i) { tasks[day].splice(i, 1); saveAndRender(); }
+function saveAndRender() {
     localStorage.setItem('weeklyTasks', JSON.stringify(tasks));
     renderWeekly();
+    updateStats();
 }
 
-function deleteTask(day, i) {
-    tasks[day].splice(i, 1);
-    localStorage.setItem('weeklyTasks', JSON.stringify(tasks));
-    renderWeekly();
+// --- 4. التايمر (Pomodoro) ---
+let timerId = null, isWorkMode = true, timeLeft = 25 * 60;
+function startTimer() {
+    if (timerId) return;
+    timerId = setInterval(() => {
+        if (timeLeft > 0) {
+            timeLeft--;
+            let m = Math.floor(timeLeft/60), s = timeLeft%60;
+            document.getElementById('timer-display').innerText = `${m}:${s<10?'0':''}${s}`;
+        } else {
+            clearInterval(timerId); timerId = null;
+            if (isWorkMode) {
+                notify("انتهى العمل!", "وقت الاستراحة يا بطل!", 'work');
+                isWorkMode = false; timeLeft = document.getElementById('break-input').value * 60;
+                addPoints(10);
+            } else {
+                notify("انتهت الراحة!", "عد للتركيز الآن!", 'break');
+                isWorkMode = true; timeLeft = document.getElementById('work-input').value * 60;
+            }
+            startTimer();
+        }
+    }, 1000);
+}
+function pauseTimer() { clearInterval(timerId); timerId = null; }
+function resetTimer() { pauseTimer(); timeLeft = document.getElementById('work-input').value * 60; document.getElementById('timer-display').innerText = "25:00"; }
+
+// --- 5. النقاط والتقويم (باقي الكود المعتاد) ---
+function addPoints(p) {
+    focusPoints += p;
+    localStorage.setItem('focusPoints', focusPoints);
+    document.getElementById('f-points').innerText = `✨ نقاط التركيز: ${focusPoints}`;
 }
 
 function updateStats() {
@@ -156,61 +135,25 @@ function updateStats() {
     document.getElementById('total-perc').innerText = all ? Math.round((done/all)*100)+'%' : '0%';
 }
 
-// 6. تقويم الشهر
-let currentMonth = new Date().getMonth();
-let currentYear = new Date().getFullYear();
-
+// (أكواد التقويم والتبديل تبقى كما هي لضمان الاستقرار)
+let curM = new Date().getMonth(), curY = new Date().getFullYear();
 function renderCalendar() {
     const grid = document.getElementById('calendarGrid');
-    if(!grid) return;
-    grid.innerHTML = '';
-    const firstDay = new Date(currentYear, currentMonth, 1).getDay();
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    
-    document.getElementById('current-month-year').innerText = 
-        new Intl.DateTimeFormat('ar-SA', {month:'long', year:'numeric'}).format(new Date(currentYear, currentMonth));
-
-    for(let i=0; i<firstDay; i++) grid.innerHTML += `<div></div>`;
-    for(let d=1; d<=daysInMonth; d++) {
-        let dateKey = `${currentYear}-${currentMonth}-${d}`;
-        let hasNote = monthTasks[dateKey] ? '●' : '';
-        grid.innerHTML += `<div class="calendar-day" onclick="openModal('${dateKey}')">${d} <small>${hasNote}</small></div>`;
+    if(!grid) return; grid.innerHTML = '';
+    const first = new Date(curY, curM, 1).getDay();
+    const daysIn = new Date(curY, curM+1, 0).getDate();
+    document.getElementById('current-month-year').innerText = new Intl.DateTimeFormat('ar-SA', {month:'long', year:'numeric'}).format(new Date(curY, curM));
+    for(let i=0; i<first; i++) grid.innerHTML += `<div></div>`;
+    for(let d=1; d<=daysIn; d++) {
+        let key = `${curY}-${curM}-${d}`;
+        grid.innerHTML += `<div class="calendar-day" onclick="openModal('${key}')">${d} ${monthTasks[key]?'<small>●</small>':''}</div>`;
     }
 }
-
-let activeDateKey = "";
-function openModal(key) {
-    activeDateKey = key;
-    document.getElementById('month-modal').style.display = 'flex';
-    document.getElementById('modal-task-input').value = monthTasks[key] || "";
-}
-function closeModal() { document.getElementById('month-modal').style.display = 'none'; }
-function saveMonthTask() {
-    monthTasks[activeDateKey] = document.getElementById('modal-task-input').value;
-    localStorage.setItem('monthTasks', JSON.stringify(monthTasks));
-    closeModal();
-    renderCalendar();
-}
-
-function changeMonth(step) {
-    currentMonth += step;
-    if(currentMonth > 11) { currentMonth=0; currentYear++; }
-    if(currentMonth < 0) { currentMonth=11; currentYear--; }
-    renderCalendar();
-}
-
-// 7. التحكم في الواجهة (Sidebar)
+function changeMonth(s) { curM += s; if(curM>11){curM=0;curY++} if(curM<0){curM=11;curY--} renderCalendar(); }
+function openModal(k) { activeK = k; document.getElementById('month-modal').style.display='flex'; document.getElementById('modal-task-input').value=monthTasks[k]||""; }
+function closeModal() { document.getElementById('month-modal').style.display='none'; }
+function saveMonthTask() { monthTasks[activeK] = document.getElementById('modal-task-input').value; localStorage.setItem('monthTasks', JSON.stringify(monthTasks)); closeModal(); renderCalendar(); }
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
-function switchView(view) {
-    document.getElementById('weekly-view').style.display = view === 'weekly' ? 'block' : 'none';
-    document.getElementById('monthly-view').style.display = view === 'monthly' ? 'block' : 'none';
-    toggleSidebar();
-}
+function switchView(v) { document.getElementById('weekly-view').style.display = v==='weekly'?'block':'none'; document.getElementById('monthly-view').style.display = v==='monthly'?'block':'none'; toggleSidebar(); }
 
-// التشغيل الابتدائي
-window.onload = () => {
-    updateHeader();
-    renderWeekly();
-    renderCalendar();
-    updateDisplay();
-};
+window.onload = initApp;
