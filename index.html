@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Planner Pro | النسخة الكاملة</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="menu-icon" onclick="toggleSidebar()">
+        <span></span><span></span><span></span>
+    </div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">⚙️ التحكم</div>
+        <button onclick="switchView('weekly')">🏠 المنظم الأسبوعي</button>
+        <button onclick="switchView('monthly')">📅 تقويم الشهر</button>
+        <div class="sidebar-footer">إصدار 2026 🚀</div>
+    </div>
+
+    <div class="main-wrapper">
+        <div class="welcome-section">
+            <div class="badge-container" id="user-badge">🏅 مبتدئ</div>
+            <div class="focus-points" id="f-points">✨ نقاط التركيز: 0</div>
+            <h1 id="user-greeting">أهلاً بك</h1>
+        </div>
+
+        <div id="weekly-view">
+            <div class="pomodoro-container" id="pomo-box">
+                <div class="pomo-header"><span id="pomo-label">🎯 وقت التركيز</span></div>
+                <div class="pomo-settings">
+                    <div><label>عمل</label><input type="number" id="work-input" value="25" onchange="resetTimer()"></div>
+                    <div><label>راحة</label><input type="number" id="break-input" value="5" onchange="resetTimer()"></div>
+                </div>
+                <div class="pomo-timer" id="timer-display">25:00</div>
+                <div class="pomo-controls">
+                    <button class="btn-p start" onclick="startTimer()">ابدأ</button>
+                    <button class="btn-p pause" onclick="pauseTimer()">توقف</button>
+                    <button class="btn-p reset" onclick="resetTimer()">إعادة</button>
+                </div>
+            </div>
+
+            <div class="global-stats">
+                <div class="g-stat"><span>المهام</span><b id="total-tasks">0</b></div>
+                <div class="g-stat"><span>منجز</span><b id="total-done">0</b></div>
+            </div>
+
+            <div class="days-grid" id="daysGrid"></div>
+        </div>
+
+        <div id="monthly-view" style="display: none;">
+            <h1 class="page-title">📅 المخطط الشهري</h1>
+            <div class="calendar-header">
+                <button class="btn-p" onclick="changeMonth(-1)">السابق</button>
+                <h2 id="current-month-year"></h2>
+                <button class="btn-p" onclick="changeMonth(1)">التالي</button>
+            </div>
+            <div class="calendar-weekdays">
+                <div>أحد</div><div>اثنين</div><div>ثلاثاء</div><div>أربعاء</div><div>خميس</div><div>جمعة</div><div>سبت</div>
+            </div>
+            <div class="calendar-grid" id="calendarGrid"></div>
+        </div>
+    </div>
+
+    <div id="month-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-icon">📝</span>
+                <h3 id="modal-date-title">ملاحظات اليوم</h3>
+            </div>
+            <div class="notes-container">
+                <textarea id="modal-task-input" placeholder="اكتب ملاحظاتك المهمة هنا..."></textarea>
+            </div>
+            <div class="modal-btns">
+                <button class="btn-p save-btn" onclick="saveMonthTask()">حفظ</button>
+                <button class="btn-p cancel-btn" onclick="closeModal()">إغلاق</button>
+            </div>
+        </div>
+    </div>
+
+    <audio id="success-sound" src="https://www.soundjay.com/buttons/sounds/button-10.mp3"></audio>
+    <script src="script.js"></script>
+</body>
+</html>
