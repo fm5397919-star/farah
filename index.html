@@ -3,11 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
     <title>منظمي الذكي | Ultimate Planner 🚀</title>
-    
     <link rel="icon" type="image/png" href="logo.png">
-
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -31,11 +28,11 @@
         </div>
 
         <div id="weekly-view">
-            <div class="pomodoro-container" id="pomo-box">
+            <div class="pomodoro-container">
                 <div class="pomo-header"><span id="pomo-label">🎯 وقت التركيز</span></div>
                 <div class="pomo-settings">
-                    <div><label>عمل</label><input type="number" id="work-input" value="25" min="1" onchange="resetTimer()"></div>
-                    <div><label>راحة</label><input type="number" id="break-input" value="5" min="1" onchange="resetTimer()"></div>
+                    <div><label>عمل</label><input type="number" id="work-input" value="25" min="1"></div>
+                    <div><label>راحة</label><input type="number" id="break-input" value="5" min="1"></div>
                 </div>
                 <div class="pomo-timer" id="timer-display">25:00</div>
                 <div class="pomo-controls">
@@ -57,9 +54,9 @@
         <div id="monthly-view" style="display: none;">
             <h1 class="page-title">📅 المخطط الشهري</h1>
             <div class="calendar-header">
-                <button class="btn-p" onclick="changeMonth(-1)">السابق</button>
+                <button onclick="changeMonth(-1)">السابق</button>
                 <h2 id="current-month-year"></h2>
-                <button class="btn-p" onclick="changeMonth(1)">التالي</button>
+                <button onclick="changeMonth(1)">التالي</button>
             </div>
             <div class="calendar-weekdays">
                 <div>أحد</div><div>اثنين</div><div>ثلاثاء</div><div>أربعاء</div><div>خميس</div><div>جمعة</div><div>سبت</div>
@@ -70,21 +67,15 @@
 
     <div id="month-modal" class="modal">
         <div class="modal-content">
-            <div class="modal-header">
-                <span class="modal-icon">📝</span>
-                <h3 id="modal-date-title">ملاحظات اليوم</h3>
-            </div>
-            <div class="notes-container">
-                <textarea id="modal-task-input" placeholder="اكتب ملاحظاتك المهمة هنا..."></textarea>
-            </div>
+            <h3 id="modal-date-title">ملاحظات اليوم</h3>
+            <textarea id="modal-task-input"></textarea>
             <div class="modal-btns">
-                <button class="btn-p save-btn" onclick="saveMonthTask()">حفظ الملاحظة</button>
+                <button class="btn-p save-btn" onclick="saveMonthTask()">حفظ</button>
                 <button class="btn-p cancel-btn" onclick="closeModal()">إغلاق</button>
             </div>
         </div>
     </div>
 
-    <audio id="success-sound" src="https://www.soundjay.com/buttons/sounds/button-10.mp3"></audio>
     <script src="script.js"></script>
 </body>
 </html>
