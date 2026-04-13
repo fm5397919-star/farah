@@ -1,129 +1,100 @@
-let currentMonth = new Date().getMonth(), currentYear = new Date().getFullYear();
-let monthlyTasks = JSON.parse(localStorage.getItem('MONTH_DATA_V6')) || {};
-let focusPoints = parseInt(localStorage.getItem('FOCUS_POINTS_V6')) || 0;
-let activePriority = 'low';
-let timer = null, timeLeft = 25 * 60, isWorkMode = true, isRunning = false;
+// 1. إعدادات الأصوات
+const workEndSound = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
+const breakEndSound = new Audio('https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg');
 
-document.addEventListener('DOMContentLoaded', () => {
-    initApp(); renderDays(); loadData(); updatePointsDisplay(); updateGlobalStats();
-});
-
-function initApp() {
-    let name = localStorage.getItem('user_name') || prompt("ما اسمك؟");
-    localStorage.setItem('user_name', name);
-    document.getElementById('user-greeting').innerText = `أهلاً بك يا ${name}`;
+// 2. طلب إذن الإشعارات عند التحميل
+if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+    Notification.requestPermission();
 }
 
-// إضافة التاريخ بجانب اليوم في الأسبوع
-function renderDays() {
-    const grid = document.getElementById('daysGrid');
-    const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-    const today = new Date();
-    grid.innerHTML = '';
-    
-    for(let i=0; i<7; i++) {
-        let d = new Date();
-        d.setDate(today.getDate() + i);
-        let dateString = `${d.getDate()}/${d.getMonth() + 1}`;
-        
-        grid.innerHTML += `
-            <div class="day-card">
-                <div class="day-title-container">
-                    <b>${days[d.getDay()]} <span class="date-badge">(${dateString})</span></b>
-                    <div style="display:flex; gap:8px;">
-                        <div class="priority-dot active" style="background:var(--accent)" onclick="setPriority('low', this)"></div>
-                        <div class="priority-dot" style="background:var(--med)" onclick="setPriority('med', this)"></div>
-                        <div class="priority-dot" style="background:var(--high)" onclick="setPriority('high', this)"></div>
-                    </div>
-                </div>
-                <div class="input-wrapper">
-                    <input type="text" id="in-${i}" placeholder="أضف مهمة...">
-                    <button class="add-icon-btn" onclick="addTask(${i})">➕</button>
-                </div>
-                <ul id="list-${i}" style="padding:0; list-style:none;"></ul>
-            </div>`;
+// 3. المتغيرات الأساسية
+let timerId = null;
+let isWorkMode = true;
+let workTime = 25;
+let breakTime = 5;
+let timeLeft = workTime * 60;
+
+const timerDisplay = document.getElementById('timer-display');
+const pomoLabel = document.getElementById('pomo-label');
+
+// 4. دالة التنبيه المشتركة (صوت + إشعار + رسالة)
+function sendAlert(title, message, type) {
+    // تشغيل الصوت حسب النوع
+    if (type === 'work') {
+        workEndSound.play().catch(e => console.log("الصوت يحتاج تفاعل أولاً"));
+    } else {
+        breakEndSound.play().catch(e => console.log("الصوت يحتاج تفاعل أولاً"));
     }
+
+    // إرسال إشعار للنظام
+    if (Notification.permission === "granted") {
+        new Notification(title, { body: message, icon: 'logo.png' });
+    }
+
+    // تنبيه للمستخدم
+    alert(message);
 }
 
-function setPriority(level, el) {
-    activePriority = level;
-    el.parentElement.querySelectorAll('.priority-dot').forEach(d => d.classList.remove('active'));
-    el.classList.add('active');
+// 5. تحديث الشاشة
+function updateDisplay() {
+    let mins = Math.floor(timeLeft / 60);
+    let secs = timeLeft % 60;
+    timerDisplay.innerText = `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
-function addTask(id) {
-    const input = document.getElementById(`in-${id}`);
-    if(!input.value) return;
-    createTaskElement(input.value, document.getElementById(`list-${id}`), activePriority, false);
-    input.value = ''; saveData(); updateGlobalStats();
+// 6. التحكم بالوقت (ابدأ)
+function startTimer() {
+    if (timerId !== null) return;
+
+    timerId = setInterval(() => {
+        if (timeLeft > 0) {
+            timeLeft--;
+            updateDisplay();
+        } else {
+            clearInterval(timerId);
+            timerId = null;
+
+            if (isWorkMode) {
+                sendAlert("انتهى وقت العمل! 🎯", "خذ استراحة قصيرة الآن.", 'work');
+                isWorkMode = false;
+                timeLeft = breakTime * 60;
+                pomoLabel.innerText = "☕ وقت الراحة";
+                addFocusPoints(10);
+            } else {
+                sendAlert("انتهت الراحة! 💪", "عد للتركيز والعمل.", 'break');
+                isWorkMode = true;
+                timeLeft = workTime * 60;
+                pomoLabel.innerText = "🎯 وقت التركيز";
+            }
+            updateDisplay();
+        }
+    }, 1000);
 }
 
-function createTaskElement(text, list, p, d) {
-    const li = document.createElement('li');
-    li.className = `task-item priority-${p} ${d ? 'done' : ''}`;
-    li.innerHTML = `<span>${text}</span>
-        <div>
-            <button onclick="toggleTask(this)" style="background:none; border:none; cursor:pointer; color:var(--accent);">✔️</button>
-            <button onclick="this.closest('.task-item').remove(); saveData(); updateGlobalStats();" style="background:none; border:none; cursor:pointer; color:#555;">🗑️</button>
-        </div>`;
-    list.prepend(li);
+// 7. توقف وإعادة
+function pauseTimer() {
+    clearInterval(timerId);
+    timerId = null;
 }
 
-function toggleTask(btn) {
-    btn.closest('.task-item').classList.toggle('done');
-    document.getElementById('success-sound').play();
-    saveData(); updateGlobalStats();
-}
-
-// البومودورو والتقويم
 function resetTimer() {
     pauseTimer();
-    timeLeft = (parseInt(document.getElementById('work-input').value) || 25) * 60;
-    isWorkMode = true; updateTimerDisplay();
+    workTime = parseInt(document.getElementById('work-input').value) || 25;
+    breakTime = parseInt(document.getElementById('break-input').value) || 5;
+    isWorkMode = true;
+    timeLeft = workTime * 60;
+    pomoLabel.innerText = "🎯 وقت التركيز";
+    updateDisplay();
 }
-function startTimer() { if(isRunning) return; isRunning=true; timer = setInterval(() => { if(timeLeft>0){timeLeft--; updateTimerDisplay()} else completeSession(); }, 1000); }
-function pauseTimer() { clearInterval(timer); isRunning=false; }
-function updateTimerDisplay() { const m=Math.floor(timeLeft/60), s=timeLeft%60; document.getElementById('timer-display').innerText = `${m}:${s<10?'0'+s:s}`; }
-function completeSession() { pauseTimer(); if(isWorkMode){ focusPoints+=10; localStorage.setItem('FOCUS_POINTS_V6', focusPoints); updatePointsDisplay(); timeLeft=(parseInt(document.getElementById('break-input').value)||5)*60; isWorkMode=false; } else resetTimer(); }
-function updatePointsDisplay() { document.getElementById('f-points').innerText = `✨ نقاط التركيز: ${focusPoints}`; }
-function updateGlobalStats() { const all = document.querySelectorAll('.task-item').length, done = document.querySelectorAll('.task-item.done').length; document.getElementById('total-tasks').innerText = all; document.getElementById('total-done').innerText = done; }
 
-function switchView(v) {
-    document.getElementById('weekly-view').style.display = v==='weekly'?'block':'none';
-    document.getElementById('monthly-view').style.display = v==='monthly'?'block':'none';
-    if(v==='monthly') renderCalendar();
-    toggleSidebar();
+// 8. نظام النقاط
+function addFocusPoints(pts) {
+    let currentPoints = parseInt(localStorage.getItem('focusPoints')) || 0;
+    currentPoints += pts;
+    localStorage.setItem('focusPoints', currentPoints);
+    const pointsElement = document.getElementById('f-points');
+    if(pointsElement) pointsElement.innerText = `✨ نقاط التركيز: ${currentPoints}`;
 }
-function toggleSidebar() { document.getElementById('sidebar').classList.toggle('active'); }
 
-function renderCalendar() {
-    const grid = document.getElementById('calendarGrid'), days = new Date(currentYear, currentMonth + 1, 0).getDate(), start = new Date(currentYear, currentMonth, 1).getDay();
-    document.getElementById('current-month-year').innerText = `${currentMonth + 1} / ${currentYear}`;
-    grid.innerHTML = '';
-    for(let i=0; i<start; i++) grid.innerHTML += '<div></div>';
-    for(let d=1; d<=days; d++) {
-        const key = `${d}-${currentMonth}-${currentYear}`;
-        grid.innerHTML += `<div class="calendar-day" onclick="openModal('${key}', ${d})"><span>${d}</span>${monthlyTasks[key] ? '<div style="width:6px; height:6px; background:var(--accent); border-radius:50%; margin-top:5px;"></div>' : ''}</div>`;
-    }
-}
-function changeMonth(dir) { currentMonth+=dir; if(currentMonth>11){currentMonth=0;currentYear++} if(currentMonth<0){currentMonth=11;currentYear--} renderCalendar(); }
-function openModal(key, d) { selectedDate=key; document.getElementById('month-modal').style.display='flex'; document.getElementById('modal-date-title').innerText = `ملاحظات يوم ${d}`; document.getElementById('modal-task-input').value = monthlyTasks[key] || ''; }
-function closeModal() { document.getElementById('month-modal').style.display='none'; }
-function saveMonthTask() { monthlyTasks[selectedDate] = document.getElementById('modal-task-input').value; localStorage.setItem('MONTH_DATA_V6', JSON.stringify(monthlyTasks)); closeModal(); renderCalendar(); }
-
-function saveData() {
-    const data = {};
-    document.querySelectorAll('.day-card').forEach((c, i) => {
-        const tasks = [];
-        c.querySelectorAll('.task-item').forEach(li => {
-            tasks.push({ t: li.querySelector('span').innerText, p: li.classList.contains('priority-high') ? 'high' : li.classList.contains('priority-med') ? 'med' : 'low', d: li.classList.contains('done') });
-        });
-        data[i] = tasks;
-    });
-    localStorage.setItem('WEEKLY_DATA_V6', JSON.stringify(data));
-}
-function loadData() {
-    const saved = JSON.parse(localStorage.getItem('WEEKLY_DATA_V6'));
-    if(!saved) return;
-    for(let i=0; i<7; i++) { if(saved[i]) saved[i].forEach(t => createTaskElement(t.t, document.getElementById(`list-${i}`), t.p, t.d)); }
-}
+// التشغيل الأولي
+updateDisplay();
